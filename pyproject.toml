@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "datetime>=5.5",
+    "polars>=1.37.1",
     "requests-oauthlib>=2.0.0",
     "werkzeug>=3.1.3",
 ]
