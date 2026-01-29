@@ -100,6 +100,10 @@ def get_offline_token(set_config: bool = True) -> str:
 
 def _get_auth_code_url(session):
     
+    env_set = "OAUTHLIB_INSECURE_TRANSPORT" in os.environ
+    # Enable redirect to loopback address (ok since HTTP request never leaves the device, see RFC 8252 section 8.3).
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
     @Request.application
     def app(request):
         q.put(request.url)
@@ -110,10 +114,6 @@ def _get_auth_code_url(session):
     authorization_url, state = session.authorization_url(config["oauth_auth_url"])
     print("Waiting for authentication in browser...")
     webbrowser.open(authorization_url)
-
-    env_set = "OAUTHLIB_INSECURE_TRANSPORT" in os.environ
-    # Enable redirect to loopback address (ok since HTTP request never leaves the device, see RFC 8252 section 8.3).
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     
     q = Queue()
     t = threading.Thread(target=s.serve_forever)
