@@ -69,12 +69,21 @@ def set_config(**kwargs: str) -> None:
     config = { **config, **kwargs }
 
 def get_token():
+
+    env_set = "OAUTHLIB_INSECURE_TRANSPORT" in os.environ
+    # Enable redirect to loopback address (ok since HTTP request never leaves the device, see RFC 8252 section 8.3).
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
     session = OAuth2Session(config["oauth_client_id"])
     url = _get_auth_code_url(session)
     token = session.fetch_token(config["oauth_token_url"],
                                 client_secret=_get_client_secret(),
                                 authorization_response=url)
     token["refresh_time"] = time()
+
+    if not env_set:
+        del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
+
     return token
  
 def get_offline_token(set_config: bool = True) -> str:
@@ -99,10 +108,6 @@ def get_offline_token(set_config: bool = True) -> str:
     return token["refresh_token"]
 
 def _get_auth_code_url(session):
-    
-    env_set = "OAUTHLIB_INSECURE_TRANSPORT" in os.environ
-    # Enable redirect to loopback address (ok since HTTP request never leaves the device, see RFC 8252 section 8.3).
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
     @Request.application
     def app(request):
@@ -122,9 +127,6 @@ def _get_auth_code_url(session):
     url = q.get(block=True)
     s.shutdown()
     t.join()
-    
-    if not env_set:
-        del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
 
     return url
 
@@ -180,6 +182,10 @@ def read_ts(
     Returns:
         pl.DataFrame: Table with colunms ts_key, time, value
     """
+
+    if isinstance(ts_keys, str):
+        ts_keys = [ts_keys]
+        
     data = _make_request(
         "GET", 
         _base_url() + "ts",
@@ -240,6 +246,10 @@ def read_ts_metadata(
     Returns:
         pl.DataFrame: Table with columns ts_key, key, value
     """
+
+    if isinstance(ts_keys, str):
+        ts_keys = [ts_keys]
+    
     data = _make_request(
         "GET", 
         _base_url() + "ts/metadata",
@@ -262,7 +272,7 @@ def _ts_metadata_to_df(data):
     for elem in data:
         dfs.append(
             pl.DataFrame(
-                {"ts_key": elem["ts_key"], "key": elem['ts_metadata'].keys(), "value": elem['ts_metadata'].values()},
+                {"ts_key": elem, "key": data[elem].keys(), "value": data[elem].values()},
                 schema=df_schema,
             )
         )
