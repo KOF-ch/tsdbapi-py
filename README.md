@@ -1,6 +1,6 @@
-# tsdbapi - Interact with the KOF Time Series Database API
+# Interact with the KOF Time Series Database API
 
-The **tsdbapi** Python package is a wrapper for the [KOF Time Series DB API](https://tsdb-api.kof.ethz.ch/v2/docs). The functionality of the package includes reading time series data, metadata and release information as well as information on the user's download limit. At the moment, the functionality of the package is quite limited (in contrast to the R package). If you miss a function for a particular API endpoint, check for updates regularly. The package functions convert the JSON data returned by the KOF Time Series DB API to either a Python dict or a [polars.DataFrame](https://docs.pola.rs/api/python/stable/reference/dataframe/index.html).
+The **tsdbapi** package is a Python wrapper for the [KOF Time Series DB API](https://tsdb-api.kof.ethz.ch/v2/docs). The functionality of the package includes reading time series data, metadata and release information from the KOF time series database. At the moment, the functionality of the package is quite limited (in contrast to the R package). If you miss a function for a particular API endpoint, check for updates regularly. The package functions convert the JSON data returned by the KOF Time Series DB API to either a Python dict or a [polars.DataFrame](https://docs.pola.rs/api/python/stable/reference/dataframe/index.html).
 
 ## Installation
 
