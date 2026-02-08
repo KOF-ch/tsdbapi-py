@@ -43,15 +43,23 @@ def _base_url():
 def _get_client_secret():
     return base64.b64decode(config["oauth_client_secret"]).decode("ascii")
 
+def get_config() -> dict:
+    """Get the current package configuration.
+
+    Returns:
+        dict: Current package configuration
+    """
+    return config
+
 def set_config(**kwargs: str) -> None:
-    """Update module configuration.
+    """Update package configuration.
 
     Args:
         **kwargs: Configuration values to set. Recognized keys:
             oauth_offline_token (str): Offline refresh token for non-interactive use.
             oauth_client_id (str): OAuth client identifier (default: "tsdb-api").
             oauth_client_secret (str): Base64-encoded OAuth client secret. Encode with base64.b64encode(your_client_secret.encode('ascii')).
-            environment (str): Whether to use the production, staging or test API. Must be one of "production", "staging", "test".
+            environment (str): Whether to use the production, staging or test API. Must be one of 'production', 'staging', 'test'.
             oauth_token_url (str): OAuth token URL.
             oauth_auth_url (str): OAuth authorization URL.
             url_production (str): Base URL of the production API.
@@ -61,14 +69,14 @@ def set_config(**kwargs: str) -> None:
                 The access types 'public' and 'preview' bypass authentication.
                 Use the access type 'public' to read public time series and the access type 'preview' to read time series previews (latest 2 years of data missing).
                 Use 'oauth' for authenticated access.
-            read_before_release (bool): Whether to read time series vintages before their official release. Defaults to TRUE. This option will only have
+            read_before_release (bool): Whether to read time series vintages before their official release. Defaults to True. This option will only have
                 an effect if you have pre release access to the requested time series.
 
     """
     global config
     config = { **config, **kwargs }
 
-def get_token():
+def _get_token(access_type = None):
 
     env_set = "OAUTHLIB_INSECURE_TRANSPORT" in os.environ
     # Enable redirect to loopback address (ok since HTTP request never leaves the device, see RFC 8252 section 8.3).
@@ -78,7 +86,8 @@ def get_token():
     url = _get_auth_code_url(session)
     token = session.fetch_token(config["oauth_token_url"],
                                 client_secret=_get_client_secret(),
-                                authorization_response=url)
+                                authorization_response=url,
+                                access_type=access_type)
     token["refresh_time"] = time()
 
     if not env_set:
@@ -99,12 +108,9 @@ def get_offline_token(set_config: bool = True) -> str:
     Returns:
         str: Offline token
     """
-    session = OAuth2Session(config["oauth_client_id"])
-    url = _get_auth_code_url(session)
-    token = session.fetch_token(config["oauth_token_url"],
-                                client_secret=_get_client_secret(),
-                                authorization_response=url,
-                                access_type="offline")
+    token = _get_token(access_type="offline")
+    if set_config:
+        set_config(oauth_offline_token=token["refresh_token"])
     return token["refresh_token"]
 
 def _get_auth_code_url(session):
@@ -147,10 +153,10 @@ def _make_request(method, url, **kwargs):
         if config["oauth_offline_token"] is not None:
             _refresh_token(config["oauth_offline_token"])
         else:
-            token = get_token()
+            token = _get_token()
     else:
         if token["refresh_time"] + token["refresh_expires_in"] < time() + 10:
-            token = get_token()
+            token = _get_token()
         if token["refresh_time"] + token["expires_in"] < time() + 10:
             _refresh_token(token["refresh_token"])
 
@@ -166,6 +172,60 @@ def _make_request(method, url, **kwargs):
 
 def _to_bool_query_param(value):
     "true" if value else ""
+
+def read_ts_release(
+        ts_keys: list[str],
+        valid_on: date = date.today(),
+        ignore_missing: bool = False) -> pl.DataFrame:
+    """Read a time series vintage release information. The vintage is specified by the valid_on parameter.
+
+    Args:
+        ts_keys (list[str]): Unique time series identifiers (keys)
+        valid_on (date, optional): Selects the time series vintage with the vintage date equal to or before this date. Defaults to date.today().
+        ignore_missing (bool, optional): Whether to ignore missing or forbidden time series when requesting time series data. Defaults to False.
+
+    Returns:
+        pl.DataFrame: Table with columns ts_key, vintage_date, release_topic, release_year, release_period and release_time
+    """
+
+    if isinstance(ts_keys, str):
+        ts_keys = [ts_keys]
+    
+    data = _make_request(
+        "GET",
+        _base_url() + "ts/release",
+        params={
+            "keys": ",".join(ts_keys),
+            "valid_on": valid_on.strftime("%Y-%m-%d"),
+            "ignore_missing": _to_bool_query_param(ignore_missing)
+        }
+    )
+    return pl.DataFrame(data)
+
+def read_ts_release_future(
+        ts_keys: list[str],
+        ignore_missing: bool = False) -> pl.DataFrame:
+    """Read the release information of future time series vintages.
+
+    Args:
+        ts_keys (list[str]): Unique time series identifiers (keys)
+        ignore_missing (bool, optional): Whether to ignore missing or forbidden time series when requesting time series data. Defaults to False.
+
+    Returns:
+        pl.DataFrame: Table with columns ts_key, release_topic, release_year, release_period and release_time
+    """
+    if isinstance(ts_keys, str):
+        ts_keys = [ts_keys]
+    
+    data = _make_request(
+        "GET",
+        _base_url() + "ts/release/future",
+        params={
+            "keys": ",".join(ts_keys),
+            "ignore_missing": _to_bool_query_param(ignore_missing)
+        }
+    )
+    return pl.DataFrame(data)
 
 def read_ts(
         ts_keys: list[str],
@@ -230,6 +290,24 @@ def read_collection_ts(
 
     return _ts_data_to_df(data)
 
+def list_collections(
+        owner: str = "self") -> list[str]:
+    """Read information on existing time series collections.
+    By default, the collections of the authenticated user are listed.
+    To list the collections of another user, provide the username of that user as the owner parameter.
+
+    Args:
+        owner (str, optional): Username of the owner of the time series collections. Defaults to "self".
+
+    Returns:
+        pl.DataFrame: Table with a row for every existing collection.
+    """
+    data = _make_request(
+        "GET", 
+        _base_url() + f"collections/{owner}"
+    )
+    return pl.DataFrame(data)
+
 def read_ts_metadata(
         ts_keys: list[str],
         locale: str = None,
@@ -257,6 +335,52 @@ def read_ts_metadata(
             "keys": ",".join(ts_keys),
             "locale": locale,
             "ignore_missing": _to_bool_query_param(ignore_missing) 
+        }
+    )
+
+    return _ts_metadata_to_df(data)
+
+def read_user_quota(
+        username = "self") -> dict:
+    """Check the number of time series downloads remaining in the current subscription year.
+
+    Args:
+        username (str, optional): Username of the user whose quota is to be checked. Defaults to "self".
+
+    Returns:
+        dict: Dictionary with quota information
+    """
+    data = _make_request(
+        "GET",
+        _base_url() + f"users/{username}/quota"
+    )
+    return data
+
+def read_collection_ts_metadata(
+        collection: str,
+        owner: str = "self",
+        locale: str = None,
+        ignore_missing: bool = False) -> pl.DataFrame:
+    """Read the time series metadata of a particular locale.
+
+    Args:
+        collection (str): Name of the time series collection
+        owner (str, optional): Username of the owner of the time series collection. Defaults to "self".
+        locale (str, optional): The locale of the metadata. 
+            Can be any string, but ISO codes are recommended (such as 'en', 'de', 'fr', 'it').
+            Set to None for unlocalized metadata (default).
+        ignore_missing (bool, optional): Whether to ignore missing or forbidden time series when requesting time series metadata. Defaults to False.
+
+    Returns:
+        pl.DataFrame: Table with columns ts_key, key, value
+    """
+    
+    data = _make_request(
+        "GET", 
+        _base_url() + f"collections/{owner}/{collection}/ts/metadata",
+        params={
+            "locale": locale,
+            "ignore_missing": _to_bool_query_param(ignore_missing)
         }
     )
 

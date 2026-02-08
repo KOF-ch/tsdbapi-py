@@ -1,6 +1,6 @@
 [project]
 name = "tsdbapi"
-version = "0.1.4"
+version = "0.1.6"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -21,4 +21,10 @@ build-backend = "uv_build"
 name = "kof"
 url = "https://registry.kof.ethz.ch/repository/kpy/simple/"
 publish-url = "https://registry.kof.ethz.ch/repository/kpy/"
+explicit = true
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
 explicit = true
