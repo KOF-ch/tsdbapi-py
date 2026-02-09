@@ -1,6 +1,6 @@
 [project]
 name = "tsdbapi"
-version = "0.1.7"
+version = "0.1.8"
 description = "Interact with the KOF Time Series Database API"
 readme = "README.md"
 authors = [
@@ -13,6 +13,10 @@ dependencies = [
     "werkzeug>=3.1.3",
 ]
 license = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/KOF-ch/tsdbapi-py"
+Issues = "https://github.com/KOF-ch/tsdbapi-py/issues"
 
 [build-system]
 requires = ["uv_build>=0.9.9,<0.10.0"]
