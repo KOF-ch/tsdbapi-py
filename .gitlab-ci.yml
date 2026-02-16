@@ -18,6 +18,7 @@ publish:
     - uv build
     - uv publish --index kof --username gitlab --password $PACKAGE_REGISTRY_PASSWORD
     - uv publish --index testpypi --username __token__ --password $TESTPYPI_TOKEN
+    - uv publish --index pypi --username __token__ --password $PYPI_TOKEN
   rules:
     - if: $CI_COMMIT_TAG
 

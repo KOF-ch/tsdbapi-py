@@ -1,6 +1,6 @@
 [project]
 name = "tsdbapi"
-version = "0.2.2"
+version = "0.2.3"
 description = "Interact with the KOF Time Series Database API"
 readme = "README.md"
 authors = [
@@ -32,4 +32,10 @@ explicit = true
 name = "testpypi"
 url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+publish-url = "https://pypi.org/legacy/"
 explicit = true
