@@ -19,7 +19,6 @@ token = None
 config = {
     "oauth_offline_token": os.getenv("TSDBAPI_OAUTH_OFFLINE_TOKEN", None),
     "oauth_client_id": os.getenv("TSDBAPI_OAUTH_CLIENT_ID", "tsdb-api"),
-    "oauth_client_secret": os.getenv("TSDBAPI_OAUTH_CLIENT_SECRET", "TXUydEpTNERpeXk3eVRjZVFRbHhteEV3a3JGWGlid3c="),
     "oauth_token_url": os.getenv("TSDBAPI_OAUTH_TOKEN_URL", "https://keycloak.kof.ethz.ch/realms/main/protocol/openid-connect/token"),
     "oauth_auth_url": os.getenv("TSDBAPI_OAUTH_AUTH_URL", "https://keycloak.kof.ethz.ch/realms/main/protocol/openid-connect/auth"),
     "url_production": os.getenv("TSDBAPI_URL_PRODUCTION", "https://tsdb-api.kof.ethz.ch/v2/"),
@@ -40,9 +39,6 @@ def _base_url():
     else:
         raise ValueError(f"Unknown environment: {config['environment']}")
     
-def _get_client_secret():
-    return base64.b64decode(config["oauth_client_secret"]).decode("ascii")
-
 def get_config() -> dict:
     """Get the current package configuration.
 
@@ -58,7 +54,6 @@ def set_config(**kwargs: str) -> None:
         **kwargs: Configuration values to set. Recognized keys:
             oauth_offline_token (str): Offline refresh token for non-interactive use.
             oauth_client_id (str): OAuth client identifier (default: "tsdb-api").
-            oauth_client_secret (str): Base64-encoded OAuth client secret. Encode with base64.b64encode(your_client_secret.encode('ascii')).
             environment (str): Whether to use the production, staging or test API. Must be one of 'production', 'staging', 'test'.
             oauth_token_url (str): OAuth token URL.
             oauth_auth_url (str): OAuth authorization URL.
@@ -82,10 +77,9 @@ def _get_token(access_type = None):
     # Enable redirect to loopback address (ok since HTTP request never leaves the device, see RFC 8252 section 8.3).
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-    session = OAuth2Session(config["oauth_client_id"])
+    session = OAuth2Session(client_id=config["oauth_client_id"], pkce="S256")
     url = _get_auth_code_url(session)
-    token = session.fetch_token(config["oauth_token_url"],
-                                client_secret=_get_client_secret(),
+    token = session.fetch_token(token_url=config["oauth_token_url"],
                                 authorization_response=url,
                                 access_type=access_type)
     token["refresh_time"] = time()
@@ -138,12 +132,11 @@ def _get_auth_code_url(session):
 
 def _refresh_token(refresh_token):
     global token
-    session = OAuth2Session()
+    session = OAuth2Session(client_id=config["oauth_client_id"], pkce="S256")
     token = session.refresh_token(
-        config["oauth_token_url"],
-        refresh_token=refresh_token,
+        token_url=config["oauth_token_url"],
         client_id=config["oauth_client_id"],
-        client_secret=_get_client_secret()
+        refresh_token=refresh_token
     )
     token["refresh_time"] = time()
 
@@ -160,7 +153,7 @@ def _make_request(method, url, **kwargs):
         if token["refresh_time"] + token["expires_in"] < time() + 10:
             _refresh_token(token["refresh_token"])
 
-    session = OAuth2Session(config["oauth_client_id"], token=token)
+    session = OAuth2Session(client_id=config["oauth_client_id"], pkce="S256", token=token)
     res = session.request(method, url, **kwargs)
     data = res.json()
     if not res.ok:

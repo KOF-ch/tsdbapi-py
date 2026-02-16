@@ -95,7 +95,7 @@ from tsdbapi import read_collection_ts
 
 read_collection_ts(collection="bs_indicator", owner="public")
 ```
-Every time series collection has an owner. By default, the owner is assumed to be yourself `owner="self"`.
+Every time series collection has an owner. By default, the owner is assumed to be yourself (`owner="self"`).
 
 You can list all collections visible to you with
 ```
