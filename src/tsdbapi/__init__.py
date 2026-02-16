@@ -1,4 +1,3 @@
-import base64
 import threading
 from queue import Queue
 

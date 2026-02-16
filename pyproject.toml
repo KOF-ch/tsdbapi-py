@@ -1,6 +1,6 @@
 [project]
 name = "tsdbapi"
-version = "0.1.8"
+version = "0.2.2"
 description = "Interact with the KOF Time Series Database API"
 readme = "README.md"
 authors = [
