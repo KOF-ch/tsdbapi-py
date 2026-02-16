@@ -38,4 +38,5 @@ explicit = true
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.org/simple/"
+publish-url = "https://upload.pypi.org/legacy/"
 explicit = true
